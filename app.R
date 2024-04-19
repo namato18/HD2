@@ -248,7 +248,6 @@ server <- function(input, output, session) {
       print(input$selectPlanet)
       planet_index = overall_summary$index[overall_summary$name == input$selectPlanet]
       print(planet_index)
-      GetPlanetHistory(planet_index)
       
       planet_history = GetPlanetHistory(planet_id = planet_index)
       
