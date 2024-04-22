@@ -35,13 +35,16 @@ Regen <-"https://helldivers-2-dotnet.fly.dev/api/v1/planets/199"
 GetCampaignInfo <- function(){
   
   Planets <- "https://helldivers-2-dotnet.fly.dev/api/v1/campaigns"
+  All_Planets <- "https://helldivers-2-dotnet.fly.dev/api/v1/planets"
   
   # Make the GET request
   response <- GET(Planets)
+  response2 <- GET(All_Planets)
   
   df = fromJSON(rawToChar(response$content))
+  df2 = fromJSON(rawToChar(response2$content))
   
-  df_overview = df %>% unnest(planet) %>%
+  df_overview = df2 %>%
     unnest(statistics) %>%
     unnest(event, names_sep = "_") %>%
     unnest(biome, names_sep = "_") %>%

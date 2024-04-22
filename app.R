@@ -5,6 +5,7 @@ library(bslib)
 library(thematic)
 library(shinydashboard)
 library(plotly)
+library(shinyWidgets)
 
 print(getwd())
 
@@ -16,17 +17,13 @@ my_theme <- bs_theme(version = 5,
 
 # Define UI
 ui <- navbarPage(id = "nav",
+                 setBackgroundImage('darker.jpg'),
                  
                  theme = my_theme,
                  
                  tags$head(
                    tags$style(HTML("
                    
-                    body {
-                      background-image: url('darker.jpg'); /* Specify the path to your background image */
-                      background-size: cover; /* Ensure the image covers the entire tab */
-                      background-repeat: no-repeat; /* Prevent image from repeating */
-                    }
                     
                     
         
@@ -84,7 +81,7 @@ ui <- navbarPage(id = "nav",
                             
                             
                             
-
+                            
                           )
                           
                  ),
@@ -95,15 +92,53 @@ ui <- navbarPage(id = "nav",
                           
                           uiOutput("planet_name"),
                           div(style = "border-top: 1px solid white; width: 100%; margin-top: 20px; margin-bottom: 20px;"),
-                          strong("Biome Name: "),
-                          textOutput("biomeName"),
+                          div(strong("Biome Name: "), align = 'center'),
+                          div(textOutput("biomeName"), align = 'center'),
                           br(),
-                          strong("Biome Description: "),
-                          textOutput("biomeDescription"),
+                          div(strong("Biome Description: "), align = 'center'),
+                          div(textOutput("biomeDescription"), align = 'center'),
+                          br(),
+                          br(),
+                          fluidRow(
+                            column(width = 2,
+                                   strong("Kills: "),
+                                   textOutput("planetKills")
+                            ),
+                            column(width = 2,
+                                   strong("Deaths: "),
+                                   textOutput("planetDeaths")
+                            ),
+                            column(width = 2,
+                                   strong("Accidentals: "),
+                                   textOutput("planetAccidentals")
+                            ),
+                            column(width = 2,
+                                   strong("Time Spent: "),
+                                   textOutput("planetTime")
+                            ),
+                            column(width = 2,
+                                   strong("Mission Succcess Rate: "),
+                                   textOutput("planetSuccessRate")
+                            ),
+                            column(width = 2,
+                                   strong("Accuracy: "),
+                                   textOutput("planetAccuracy")
+                            )
+                            
+                          ),
                           div(style = "border-top: 1px solid white; width: 100%; margin-top: 20px; margin-bottom: 20px;"),
                           selectInput(inputId = "selectPlanet", label = "Select a Planet to Examine", choices = ""),
                           
-                          plotlyOutput("planetPlot")
+                          fluidRow(
+                            column(width = 6,
+                                   plotlyOutput("planetPlot")
+                            ),
+                            column(width = 6,
+                                   plotlyOutput("planetDeathPie")
+                            )
+                          ),
+                          div(style = "border-top: 1px solid white; width: 100%; margin-top: 20px; margin-bottom: 20px;"),
+
                           
                           
                           
@@ -159,7 +194,8 @@ server <- function(input, output, session) {
   
   
   overall_summary <- GetAllPlanets() %>%
-    unnest(statistics)
+    unnest(statistics) %>%
+    unnest(biome, names_sep = "_")
   
   
   output$bulletsFired = renderText(paste0(round(sum(overall_summary$bulletsFired) / 1000000000 , 2), " B"))
@@ -167,7 +203,7 @@ server <- function(input, output, session) {
   output$accidentalFriendlies = renderText(paste0(round(sum(overall_summary$friendlies) / 1000000 ,2), " M"))
   output$timePlayed = renderText(paste0(round(sum(overall_summary$timePlayed) / 60 / 60 / 24 / 365, 2), " Years"))
   
-
+  
   
   updateSelectInput(inputId = "selectPlanet", label = "Select a Planet to Examine", choices = overall_summary$name)
   
@@ -179,7 +215,7 @@ server <- function(input, output, session) {
   df_overview = planets_overview$df_overview
   
   observe({
-
+    
     
     output$overview = renderDataTable({
       datatable(df_planets, escape = FALSE, style = "default", selection = 'single') %>%
@@ -205,7 +241,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$overview_rows_selected, {
-
+    
     dat <- rv$df_overview[input$overview_rows_selected, ]
     
     updateNavbarPage(session, inputId = "nav" ,selected = "Planet Info")
@@ -215,7 +251,7 @@ server <- function(input, output, session) {
                     justify-content: center;
                     align-items: center;
                     height: 100px;
-                    font-size: 20px;
+                    font-size: 40px;
                     font-weight: bold;'>",
                   dat$name,
                   "</span>"))
@@ -225,7 +261,7 @@ server <- function(input, output, session) {
     updateSelectInput(inputId = "selectPlanet", label = "Select a Planet to Examine", choices = overall_summary$name, selected = dat$name)
     
     
-
+    
     # 
     # planet_index = rv$df_overview$index[rv$df_overview$name == dat$name]
     # planet_history = GetPlanetHistory(planet_id = planet_index)
@@ -244,14 +280,14 @@ server <- function(input, output, session) {
     #     font = list(color = "white"))
     # 
     # output$planetPlot = renderPlotly(p1)
-
+    
   })
   
   observeEvent(input$selectPlanet, {
     
     if(input$selectPlanet != ""){
       print(input$selectPlanet)
-      planet_index = overall_summary$index[overall_summary$name == input$selectPlanet]
+      planet_index = overall_summary$index[overall_summary$name == input$selectPlanet] + 1
       print(planet_index)
       
       
@@ -259,13 +295,8 @@ server <- function(input, output, session) {
       planet_history = GetPlanetHistory(planet_id = planet_index)
       
       if(is.null(planet_history)){
-        return(NULL)
+        output$planetPlot = NULL
       }else{
-        dat <- rv$df_overview[input$overview_rows_selected, ]
-        print(dat)
-        
-        output$biomeName = renderText(paste0(" ",dat$biome_name))
-        output$biomeDescription = renderText(paste0(" ",dat$biome_description))
         
         p1 = plot_ly(data = planet_history, x = ~created_at) %>%
           add_lines(y = ~player_count, name = "Player Count", hoverinfo = "y", yaxis = "y1", color = I("lightblue"), line = list(width = 8), opacity = 0.4) %>%
@@ -282,10 +313,55 @@ server <- function(input, output, session) {
         output$planetPlot = renderPlotly(p1)
       }
       
+      dat <- overall_summary[planet_index, ]
+      dat_pie <- data.frame(
+        Category = c("Friendlies", "Killed To Enemies"),
+        Deaths = c(dat$friendlies, dat$deaths)
+      )
+      assign('look',dat,.GlobalEnv)
+      print(dat)
       
-
+      output$planet_name = renderUI({
+        HTML(paste0("<span style = 'display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100px;
+                    font-size: 40px;
+                    font-weight: bold;'>",
+                    dat$name,
+                    "</span>"))
+        
+      })
+      
+      output$biomeName = renderText(paste0(" ",dat$biome_name))
+      output$biomeDescription = renderText(paste0(" ",dat$biome_description))
+      output$planetKills = renderText(paste0(round((dat$terminidKills + dat$illuminateKills + dat$automatonKills) / 1000000000, 2), " B"))
+      output$planetDeaths = renderText(paste0(round(dat$deaths / 1000000, 2), " M"))
+      output$planetAccidentals = renderText(paste0(round(dat$friendlies / 1000000, 2), " M"))
+      output$planetTime = renderText(paste0(round(dat$missionTime / 60 / 60 / 24 / 365, 2), " Years"))
+      output$planetSuccessRate = renderText(paste0(dat$missionSuccessRate, "%"))
+      output$planetAccuracy = renderText(paste0(round(dat$bulletsFired / dat$bulletsHit * 100, 2), " %"))
+      
+      pie_colors = c("darkred","darkgreen")
+      
+      output$planetDeathPie <- renderPlotly(plot_ly(data = dat_pie, labels = ~Category, values = ~Deaths, type = 'pie',
+                                                    textposition = 'inside',
+                                                    textinfo = 'label+percent',
+                                                    insidetextfont = list(color = '#FFFFFF'),
+                                                    hoverinfo = 'text',
+                                                    text = ~paste(Deaths, ' Deaths'),
+                                                    marker = list(colors = pie_colors,
+                                                                  line = list(color = "#FFFFFF", width = 1)),
+                                                    showlegend = FALSE) %>%
+                                              layout(plot_bgcolor = 'rgba(0, 0, 0, 0)', paper_bgcolor = "rgba(0, 0, 0, 0)",
+                                                     title = list(text = "Deaths Caused by Friendlies and Enememies", font = list(color = "#FFFFFF")))
+                                            
+      )
+      
+      
+      
     }
-
+    
     
   })
   
