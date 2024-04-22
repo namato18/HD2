@@ -174,10 +174,12 @@ server <- function(input, output, session) {
   rv <- reactiveValues(df_planets = character(),
                        df_overview = character())
   
+  planets_overview = GetCampaignInfo()
+  df_planets = planets_overview$df
+  df_overview = planets_overview$df_overview
+  
   observe({
-    planets_overview = GetCampaignInfo()
-    df_planets = planets_overview$df
-    df_overview = planets_overview$df_overview
+
     
     output$overview = renderDataTable({
       datatable(df_planets, escape = FALSE, style = "default", selection = 'single') %>%
@@ -203,8 +205,8 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$overview_rows_selected, {
+
     dat <- rv$df_overview[input$overview_rows_selected, ]
-    print(dat)
     
     updateNavbarPage(session, inputId = "nav" ,selected = "Planet Info")
     
@@ -217,28 +219,31 @@ server <- function(input, output, session) {
                     font-weight: bold;'>",
                   dat$name,
                   "</span>"))
+      
     })
     
-    output$biomeName = renderText(paste0(" ",dat$biome_name))
-    output$biomeDescription = renderText(paste0(" ",dat$biome_description)) 
-    
-    planet_index = rv$df_overview$index[rv$df_overview$name == dat$name]
-    planet_history = GetPlanetHistory(planet_id = planet_index)
+    updateSelectInput(inputId = "selectPlanet", label = "Select a Planet to Examine", choices = overall_summary$name, selected = dat$name)
     
     
-    p1 = plot_ly(data = planet_history, x = ~created_at) %>%
-      add_lines(y = ~player_count, name = "Player Count", hoverinfo = "y", yaxis = "y1", color = I("blue"), line = list(width = 8), opacity = 0.8) %>%
-      add_lines(y = ~liberation, name = "Liberation %", hoverinfo = "y", yaxis = "y2", color = I("green"), line = list(width = 8), opacity = 0.8) %>%
-      layout(
-        title = "Planet Info",
-        xaxis = list(title = "Timeline", gridcolor = "white"),
-        yaxis = list(title = "Player Count", side = "left", position = 0, gridcolor = "white"),
-        yaxis2 = list(title = "Liberation %", overlaying = "y", side = "right", position = 1, range = c(0,100)),
-        plot_bgcolor = "rgba(34, 34, 34, 0.8)",
-        paper_bgcolor = "rgba(34, 34, 34, 0.0)",
-        font = list(color = "white"))
-    
-    output$planetPlot = renderPlotly(p1)
+
+    # 
+    # planet_index = rv$df_overview$index[rv$df_overview$name == dat$name]
+    # planet_history = GetPlanetHistory(planet_id = planet_index)
+    # 
+    # 
+    # p1 = plot_ly(data = planet_history, x = ~created_at) %>%
+    #   add_lines(y = ~player_count, name = "Player Count", hoverinfo = "y", yaxis = "y1", color = I("blue"), line = list(width = 8), opacity = 0.8) %>%
+    #   add_lines(y = ~liberation, name = "Liberation %", hoverinfo = "y", yaxis = "y2", color = I("green"), line = list(width = 8), opacity = 0.8) %>%
+    #   layout(
+    #     title = "Planet Info",
+    #     xaxis = list(title = "Timeline", gridcolor = "white"),
+    #     yaxis = list(title = "Player Count", side = "left", position = 0, gridcolor = "white"),
+    #     yaxis2 = list(title = "Liberation %", overlaying = "y", side = "right", position = 1, range = c(0,100)),
+    #     plot_bgcolor = "rgba(34, 34, 34, 0.8)",
+    #     paper_bgcolor = "rgba(34, 34, 34, 0.0)",
+    #     font = list(color = "white"))
+    # 
+    # output$planetPlot = renderPlotly(p1)
 
   })
   
@@ -249,11 +254,19 @@ server <- function(input, output, session) {
       planet_index = overall_summary$index[overall_summary$name == input$selectPlanet]
       print(planet_index)
       
+      
+      
       planet_history = GetPlanetHistory(planet_id = planet_index)
       
       if(is.null(planet_history)){
         return(NULL)
       }else{
+        dat <- rv$df_overview[input$overview_rows_selected, ]
+        print(dat)
+        
+        output$biomeName = renderText(paste0(" ",dat$biome_name))
+        output$biomeDescription = renderText(paste0(" ",dat$biome_description))
+        
         p1 = plot_ly(data = planet_history, x = ~created_at) %>%
           add_lines(y = ~player_count, name = "Player Count", hoverinfo = "y", yaxis = "y1", color = I("lightblue"), line = list(width = 8), opacity = 0.4) %>%
           add_lines(y = ~liberation, name = "Liberation %", hoverinfo = "y", yaxis = "y2", color = I("lightgreen"), line = list(width = 8), opacity = 0.4) %>%
